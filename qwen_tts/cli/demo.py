@@ -28,6 +28,7 @@ import numpy as np
 import torch
 
 from .. import Qwen3TTSModel, VoiceClonePromptItem
+from ..device_utils import get_device
 
 
 def _title_case_display(s: str) -> str:
@@ -67,7 +68,7 @@ def build_parser() -> argparse.ArgumentParser:
             "Examples:\n"
             "  qwen-tts-demo Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice\n"
             "  qwen-tts-demo Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign --port 8000 --ip 127.0.0.01\n"
-            "  qwen-tts-demo Qwen/Qwen3-TTS-12Hz-1.7B-Base --device cuda:0\n"
+            "  qwen-tts-demo Qwen/Qwen3-TTS-12Hz-1.7B-Base --device cuda:0  # Works for both NVIDIA and AMD ROCm\n"
             "  qwen-tts-demo Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice --dtype bfloat16 --no-flash-attn\n"
         ),
         formatter_class=argparse.RawTextHelpFormatter,
@@ -91,8 +92,8 @@ def build_parser() -> argparse.ArgumentParser:
     # Model loading / from_pretrained args
     parser.add_argument(
         "--device",
-        default="cuda:0",
-        help="Device for device_map, e.g. cpu, cuda, cuda:0 (default: cuda:0).",
+        default=None,
+        help="Device for device_map, e.g. cpu, cuda, cuda:0 (default: auto-detect CUDA/ROCm/MPS/CPU).",
     )
     parser.add_argument(
         "--dtype",
@@ -602,12 +603,15 @@ def main(argv=None) -> int:
 
     ckpt = _resolve_checkpoint(args)
 
+    device = args.device if args.device is not None else get_device()
+    print(f"Using device: {device}")
+
     dtype = _dtype_from_str(args.dtype)
     attn_impl = "flash_attention_2" if args.flash_attn else None
 
     tts = Qwen3TTSModel.from_pretrained(
         ckpt,
-        device_map=args.device,
+        device_map=device,
         dtype=dtype,
         attn_implementation=attn_impl,
     )

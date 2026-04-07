@@ -18,14 +18,18 @@ import requests
 import soundfile as sf
 
 from qwen_tts import Qwen3TTSTokenizer
+from qwen_tts.device_utils import get_device
 
 audio_1 = "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3-TTS-Repo/tokenizer_demo_1.wav"
 audio_2 = "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3-TTS-Repo/tokenizer_demo_2.wav"
 
+device = get_device()
+print(f"Using device: {device}")
+
 # -------- Single input: wav path --------
 tokenizer_12hz = Qwen3TTSTokenizer.from_pretrained(
     "Qwen/Qwen3-TTS-Tokenizer-12Hz",
-    device_map="cuda:0",
+    device_map=device,
 )
 
 enc1 = tokenizer_12hz.encode(audio_1)

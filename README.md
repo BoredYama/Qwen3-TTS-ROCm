@@ -141,6 +141,94 @@ MAX_JOBS=4 pip install -U flash-attn --no-build-isolation
 Also, you should have hardware that is compatible with FlashAttention 2. Read more about it in the official documentation of the [FlashAttention repository](https://github.com/Dao-AILab/flash-attention). FlashAttention 2 can only be used when a model is loaded in `torch.float16` or `torch.bfloat16`.
 
 
+### AMD ROCm Installation (RX 7000 / MI Series)
+
+This fork adds support for **AMD GPUs** via ROCm 7.2. ROCm's HIP runtime maps to PyTorch's `cuda` backend, so `device_map="cuda:0"` works for both NVIDIA and AMD GPUs — no code changes needed for inference.
+
+> **Prerequisites:** ROCm 7.2.x drivers installed on the host system. See the [ROCm installation guide](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/).
+
+#### Step 1: Create a Conda Environment and Install System Dependencies
+
+```bash
+conda create -n qwen3-tts-rocm python=3.12 -y
+conda activate qwen3-tts-rocm
+conda install -c conda-forge sox -y   # SoX audio tool (required by the sox Python package)
+```
+
+#### Step 2: Download AMD ROCm PyTorch Wheels
+
+```bash
+wget https://repo.radeon.com/rocm/manylinux/rocm-rel-7.2.1/torch-2.9.1%2Brocm7.2.1.lw.gitff65f5bc-cp312-cp312-linux_x86_64.whl
+wget https://repo.radeon.com/rocm/manylinux/rocm-rel-7.2.1/torchvision-0.24.0%2Brocm7.2.1.gitb919bd0c-cp312-cp312-linux_x86_64.whl
+wget https://repo.radeon.com/rocm/manylinux/rocm-rel-7.2.1/torchaudio-2.9.0%2Brocm7.2.1.gite3c6ee2b-cp312-cp312-linux_x86_64.whl
+wget https://repo.radeon.com/rocm/manylinux/rocm-rel-7.2.1/triton-3.5.1%2Brocm7.2.1.gita272dfa8-cp312-cp312-linux_x86_64.whl
+```
+
+#### Step 3: Install PyTorch ROCm Wheels (order matters)
+
+Install `torch` first, then the rest, to prevent pip from pulling NVIDIA's PyTorch:
+
+```bash
+pip install torch-2.9.1+rocm7.2.1.lw.gitff65f5bc-cp312-cp312-linux_x86_64.whl
+pip install torchvision-0.24.0+rocm7.2.1.gitb919bd0c-cp312-cp312-linux_x86_64.whl
+pip install torchaudio-2.9.0+rocm7.2.1.gite3c6ee2b-cp312-cp312-linux_x86_64.whl
+pip install triton-3.5.1+rocm7.2.1.gita272dfa8-cp312-cp312-linux_x86_64.whl
+```
+
+#### Step 4: Install Flash Attention
+
+If you have a pre-compiled Flash Attention wheel for ROCm:
+
+```bash
+pip install /path/to/flash_attn-2.8.4-cp312-cp312-linux_x86_64.whl
+```
+
+Otherwise, build from source (requires ROCm toolchain):
+
+```bash
+MAX_JOBS=4 pip install flash-attn --no-build-isolation
+```
+
+#### Step 5: Install Qwen3-TTS from Source
+
+Use `--no-deps` to prevent pip from reinstalling torch/torchaudio with NVIDIA builds:
+
+```bash
+git clone https://github.com/BoredYama/Qwen3-TTS-ROCm.git
+cd Qwen3-TTS-ROCm
+pip install -e . --no-deps
+```
+
+#### Step 6: Install Remaining Dependencies
+
+```bash
+pip install transformers==4.57.3 accelerate==1.12.0 gradio librosa soundfile sox onnxruntime einops
+```
+
+#### Step 7: Verify Installation
+
+```bash
+python -c "
+import torch
+print(f'PyTorch version: {torch.__version__}')
+print(f'CUDA/ROCm available: {torch.cuda.is_available()}')
+if torch.cuda.is_available():
+    print(f'Device name: {torch.cuda.get_device_name(0)}')
+    print(f'HIP version: {torch.version.hip}')
+"
+```
+
+Expected output on AMD GPU:
+```
+PyTorch version: 2.9.1+rocm7.2.1...
+CUDA/ROCm available: True
+Device name: AMD Radeon RX 7600 XT
+HIP version: 6.4.xxxxx
+```
+
+> **Note:** On ROCm, `torch.cuda.is_available()` returns `True` and `device_map="cuda:0"` works identically to NVIDIA. The examples and CLI will auto-detect your GPU type.
+
+
 ### Python Package Usage
 
 After installation, you can import `Qwen3TTSModel` to run custom voice TTS, voice design, and voice clone. The model weights can be specified either as a Hugging Face model id (recommended) or as a local directory path you downloaded. For all the `generate_*` functions below, besides the parameters shown and explicitly documented, you can also pass generation kwargs supported by Hugging Face Transformers `model.generate`, e.g., `max_new_tokens`, `top_p`, etc.
@@ -417,6 +505,25 @@ qwen-tts-demo Qwen/Qwen3-TTS-12Hz-1.7B-Base \
 ```
 
 And open `https://<your-ip>:8000` to experience it. If your browser shows a warning, it’s expected for self-signed certificates. For production, use a real certificate.
+
+### Launch Custom Web UI (Voice Studio)
+
+We also provide a premium custom web UI built with FastAPI that supports **all features in a single interface** — Custom Voice, Voice Design, and Voice Clone — with model switching from a dropdown menu.
+
+```bash
+# Start with no model pre-loaded (select from the UI)
+python webui.py --port 7860
+
+# Pre-load a specific model on startup
+python webui.py --model Qwen3-TTS-12Hz-1.7B-CustomVoice --port 7860
+```
+
+Then open `http://localhost:7860` in your browser. Features:
+- 🎙 **Custom Voice** — Generate speech with pre-defined speakers and optional style control
+- 🎨 **Voice Design** — Describe your desired voice in natural language
+- 🧬 **Voice Clone** — Clone any voice from a short audio clip
+- Hot-swap models without restarting the server
+- Advanced generation parameter controls
 
 ### DashScope API Usage
 
