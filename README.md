@@ -508,22 +508,37 @@ And open `https://<your-ip>:8000` to experience it. If your browser shows a warn
 
 ### Launch Custom Web UI (Voice Studio)
 
-We also provide a premium custom web UI built with FastAPI that supports **all features in a single interface** — Custom Voice, Voice Design, and Voice Clone — with model switching from a dropdown menu.
+We provide a premium custom web UI built with FastAPI that supports **all features in a single interface** — Custom Voice, Voice Design, and Voice Clone — with model switching and device selection.
 
+#### 🚀 GPU Mode (ROCm / CUDA)
+Recommended for high-performance inference. Includes a "NaN-Safe" monkey-patch to prevent system freezes on AMD hardware.
 ```bash
-# Start with no model pre-loaded (select from the UI)
+# Start with auto-detection (defaults to GPU if found)
 python webui.py --port 7860
 
-# Pre-load a specific model on startup
-python webui.py --model Qwen3-TTS-12Hz-1.7B-CustomVoice --port 7860
+# Force specific GPU
+python webui.py --device cuda:0 --port 7860
 ```
 
-Then open `http://localhost:7860` in your browser. Features:
-- 🎙 **Custom Voice** — Generate speech with pre-defined speakers and optional style control
+#### 🛡️ GPU Stability Mode (AMD RDNA3)
+If you experience system hangs or "Black Screens" on consumer AMD cards (e.g., RX 7600 XT), force serial execution to prevent the driver from locking up:
+```bash
+export AMD_SERIALIZE_KERNEL=3
+python webui.py --device cuda:0
+```
+
+#### 💻 CPU Mode
+Highly stable and reliable. For some RDNA3 architectures, CPU inference can be faster than the current unoptimized ROCm kernels.
+```bash
+python webui.py --device cpu --port 7860
+```
+
+#### Features:
+- 🎙 **Custom Voice** — Generate speech with pre-defined speakers
 - 🎨 **Voice Design** — Describe your desired voice in natural language
 - 🧬 **Voice Clone** — Clone any voice from a short audio clip
-- Hot-swap models without restarting the server
-- Advanced generation parameter controls
+- Hot-swap models and switch between CPU/GPU without restarting the server.
+- Advanced parameter control (Temperature, Top-P, Repetition Penalty).
 
 ### DashScope API Usage
 
